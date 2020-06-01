@@ -2,16 +2,13 @@
 
 MargoulNFC::MargoulNFC()
 {
-  PN532_I2C pn532_i2c(Wire);
-  PN532 _nfc(pn532_i2c);
+	 _nfc.begin();
 
-  _nfc.begin();
-
-  uint32_t versiondata = _nfc.getFirmwareVersion();
-  if (! versiondata) {
-    Serial.print(F("Didn't find PN53x board"));
-    return;
-  }
+	  uint32_t versiondata = _nfc.getFirmwareVersion();
+	  if (! versiondata) {
+		Serial.print(F("Didn't find PN53x board"));
+		return;
+	  }
 }
 
 MargoulNFC::~MargoulNFC()
@@ -30,7 +27,8 @@ void MargoulNFC::readNfcBlock(int block, uint8_t success, uint8_t uid[], uint8_t
       success = _nfc.mifareclassic_ReadDataBlock(block, data);
     }
     else {
-      throwError();
+		MargoulError e;
+		e.throwError();
     }
 }
 
@@ -77,7 +75,8 @@ void MargoulNFC::loadFromNfc(struct Note *music[100], int *musicCursor) {
       }
   }
     else {
-      throwError();
+	  MargoulError e;
+	  e.throwError();
     }
 
 }
@@ -91,7 +90,8 @@ void MargoulNFC::writeNfcBlock(int block, uint8_t success, uint8_t uid[], uint8_
       success = _nfc.mifareclassic_WriteDataBlock (block, data);
     }
     else {
-      throwError();
+		MargoulError e;
+		e.throwError();
     }
 }
 
@@ -141,6 +141,7 @@ void MargoulNFC::saveToNfc(struct Note *music[100], int *musicCursor) {
       }
   }
   else {
-    throwError();
+	  MargoulError e;
+	  e.throwError();
   }
 }

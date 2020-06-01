@@ -1,10 +1,120 @@
 #include "pitches.h"
 #include "mode.h"
-// include the library code:
+
 #include <LiquidCrystal.h>
 #include <Encoder.h>
 #include <EEPROM.h>
+#include "MargoulError.h"
 #include "MargoulNFC.h"
+
+void drawKeyboard();
+void drawParam();
+void debugMode();
+void composeMode();
+
+	byte arrayUp[8] = {
+	  B00100,
+	  B01110,
+	  B11111,
+	  B00100,
+	  B00100,
+	  B00100,
+	  B00000,
+	};
+
+	byte black[8] = {
+	  B11111,
+	  B10001,
+	  B10001,
+	  B10001,
+	  B10001,
+	  B10001,
+	  B11111,
+	};
+
+	byte white[8] = {
+	  B11111,
+	  B11111,
+	  B11111,
+	  B11111,
+	  B11111,
+	  B11111,
+	  B11111,
+	};
+
+	byte silent[8] = {
+	  B11111,
+	  B00000,
+	  B11111,
+	  B00000,
+	  B11111,
+	  B00000,
+	  B11111,
+	};
+
+	byte playnote[8] = {
+	  B00000,
+	  B00111,
+	  B00110,
+	  B00100,
+	  B00100,
+	  B11100,
+	  B11100,
+	  B11100,
+	};
+
+	byte undo[8] = {
+	  B00100,
+	  B01100,
+	  B11111,
+	  B01101,
+	  B00101,
+	  B10001,
+	  B11111,
+	};
+
+	byte clearIcon[8] = {
+	  B00000,
+	  B10001,
+	  B01010,
+	  B00100,
+	  B01010,
+	  B10001,
+	  B00000,
+	};
+
+	byte stopIcon[8] = {
+	  B00000,
+	  B00000,
+	  B11111,
+	  B11111,
+	  B11111,
+	  B11111,
+	  B11111,
+	  B00000,
+	};
+
+	byte loopable[8] = {
+	  B00000,
+	  B01000,
+	  B01000,
+	  B01110,
+	  B00000,
+	  B00000,
+	  B00000,
+	  B00000,
+	};
+
+	byte loopableOn[8] = {
+	  B00000,
+	  B01000,
+	  B01000,
+	  B01110,
+	  B00000,
+	  B01010,
+	  B00100,
+	  B00000,
+	};
 
 LiquidCrystal lcd(10, 5, 6, 7, 8, 9);
 Encoder myEnc(3, 2);
@@ -24,8 +134,7 @@ int keyboard[][KEYBOARD_SIZE] = {
 };
 
 #define DURATION_SIZE 6
-
-bool error = false;
+MargoulError err(false);
 
 int currentOctave = 2;
 
@@ -164,13 +273,6 @@ void clearEeprom() {
   }
 }
 
-void throwError() {
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("An error occured");
-  error = true;
-}
-
 void dumpEeprom() {
   Serial.print(F("Eeprom: "));
   Serial.println(EEPROM.length());
@@ -203,11 +305,11 @@ void loop() {
     lastmillis = millis();
   }
 
-  if (error) {
+  if (err.getState()) {
     if (clicked == true) {
       lcd.clear();
       drawParam();
-      error = false;
+      err.setState(false);
     }
   }
   else {
