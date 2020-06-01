@@ -1,13 +1,9 @@
+#ifndef MODE_H_
+#define MODE_H_
+
 #define DEBUG_MODE 0
 #define PIANO_COMPOSE_MODE 1
 #define PIANO_PLAY_MODE 2
-
-# include <Wire.h>
-# include <PN532_I2C.h>
-# include <PN532.h>
-
-PN532_I2C pn532_i2c(Wire);
-PN532 nfc(pn532_i2c);
 
 byte arrayUp[8] = {
   B00100,
@@ -80,8 +76,6 @@ byte clearIcon[8] = {
   B00000,
 };
 
-
-
 byte stopIcon[8] = {
   B00000,
   B00000,
@@ -122,11 +116,12 @@ byte loopableOn[8] = {
 #define MusicLen 100
 //#define MusicLen 240
 
-typedef struct noteBytes {
+struct Note {
   byte note[2] = {
     0x00,
     0x00
   };
   byte duration = 0x00;
-} Note;
+};
 
+#endif /* MODE_H_ */

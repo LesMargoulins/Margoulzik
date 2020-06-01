@@ -1,36 +1,14 @@
-/*
-  Melody
-
-  Plays a melody
-
-  circuit:
-  - 8 ohm speaker on digital pin 8
-
-  created 21 Jan 2010
-  modified 30 Aug 2011
-  by Tom Igoe
-
-  This example code is in the public domain.
-
-  http://www.arduino.cc/en/Tutorial/Tone
-*/
-
-/*
- * MEMORY MAP
- * 
- * 
- * 
- */
-
 #include "pitches.h"
 #include "mode.h"
 // include the library code:
 #include <LiquidCrystal.h>
 #include <Encoder.h>
 #include <EEPROM.h>
+#include "MargoulNFC.h"
 
 LiquidCrystal lcd(10, 5, 6, 7, 8, 9);
 Encoder myEnc(3, 2);
+//MargoulNFC nfc;
 
 #define KEYBOARD_SIZE 12
 #define KEYBOARD_OFFSET 1
@@ -57,10 +35,10 @@ int keyboardColor[] = {
 
 int duration = 4;
 
-Note music[MusicLen];
+struct Note *music = (struct Note *)malloc(100 * sizeof(struct Note));
 int musicCursor = 0;
 
-// constants won't change. They're used here to 
+// constants won't change. They're used here to
 // set pin numbers:
 const int buttonPin = 4;     // the number of the pushbutton pin
 
@@ -74,138 +52,29 @@ bool  playingSound = false;
 bool  isLoopable = false;
 int   soundQueue = 0;
 
+void setup() {
+  lcd.clear();
+  Serial.begin(9600);
+  // set up the LCD's number of columns and rows:
+  lcd.begin(16, 2);
+  // Print a message to the LCD.
+  lcd.print(F("Booting..."));
+
+  // initialize the pushbutton pin as an input:
+  pinMode(buttonPin, INPUT);
+  lcd.createChar(0, arrayUp);
+  lcd.createChar(1, black);
+  lcd.createChar(2, white);
+  lcd.createChar(3, silent);
+  drawKeyboard();
+}
+
 void stopPlay() {
   playingSound = false;
   playingNote = false;
   soundQueue = 0;
   endTime = 0;
   noTone(11);
-}
-
-void readNfcBlock(int block, uint8_t success, uint8_t uid[], uint8_t uidLength,  uint8_t keya[], uint8_t *data) {
-    success = nfc.mifareclassic_AuthenticateBlock(uid, uidLength, block, 0, keya);
-
-    if (success)
-    {
-      // data = { 'a', 'd', 'a', 'f', 'r', 'u', 'i', 't', '.', 'c', 'o', 'm', 0, 0, 0, 0};
-      // success = nfc.mifareclassic_WriteDataBlock (block, data);
-  
-      success = nfc.mifareclassic_ReadDataBlock(block, data);
-    }
-    else {
-      throwError();
-    }
-}
-
-void loadFromNfc() {
-  // configure board to read RFID tags
-  nfc.SAMConfig();
-
-  uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
-  uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
-  uint8_t data[16];
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
-
-  if (success) {
-    if (uidLength != 4)
-      return;
-      uint8_t keya[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-      readNfcBlock(1, success, uid, uidLength, keya, data);
-      musicCursor = data[0];
-      if (musicCursor > MusicLen)
-        return;
-      
-      int j = 0;
-      int noteid = 0;
-      int innoteid = 0;
-      for (int i = 4; j < musicCursor * 3; i++) {
-        if ((i - 4) % 4 == 3)
-          continue;
-        readNfcBlock(i, success, uid, uidLength, keya, data);
-        for (int w = 0; w < 16 && noteid < musicCursor; w++) {
-          if (innoteid == 0)
-            music[noteid].note[0] = data[w];
-          else if (innoteid == 1)
-            music[noteid].note[1] = data[w];
-          else
-            music[noteid].duration = data[w];
-          innoteid += 1;
-          if (innoteid >= 3) {
-            innoteid = 0;
-            noteid += 1;
-          }
-        }
-        j += 16;
-      }
-  }
-    else {
-      throwError();
-    }
-
-}
-
-void writeNfcBlock(int block, uint8_t success, uint8_t uid[], uint8_t uidLength,  uint8_t keya[], uint8_t *data) {
-    success = nfc.mifareclassic_AuthenticateBlock(uid, uidLength, block, 0, keya);
-
-    if (success)
-    {
-      // data = { 'a', 'd', 'a', 'f', 'r', 'u', 'i', 't', '.', 'c', 'o', 'm', 0, 0, 0, 0};
-      success = nfc.mifareclassic_WriteDataBlock (block, data);
-    }
-    else {
-      throwError();
-    }
-}
-
-void saveToNfc() {
-  // configure board to read RFID tags
-  nfc.SAMConfig();
-
-  uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
-  uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
-  uint8_t data[16] = {musicCursor, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
-
-  if (success) {
-    if (uidLength != 4)
-      return;
-      uint8_t keya[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-      writeNfcBlock(1, success, uid, uidLength, keya, data);
-      if (musicCursor > MusicLen)
-        return;
-      Serial.print("Going to save ");
-      Serial.println(musicCursor);
-      int j = 0;
-      int noteid = 0;
-      int innoteid = 0;
-      for (int i = 4; j < musicCursor * 3; i++) {
-        if ((i - 4) % 4 == 3)
-          continue;
-        for (int w = 0; w < 16; w++) {
-          if (noteid >= musicCursor)
-            data[w] = 0;
-          else if (innoteid == 0)
-            data[w] = music[noteid].note[0];
-          else if (innoteid == 1)
-            data[w] = music[noteid].note[1];
-          else
-            data[w] = music[noteid].duration;
-          innoteid += 1;
-          if (innoteid >= 3) {
-            innoteid = 0;
-            noteid += 1;
-          }
-        }
-        nfc.PrintHexChar(data, 16);
-        writeNfcBlock(i, success, uid, uidLength, keya, data);
-        j += 16;
-      }
-  }
-  else {
-    throwError();
-  }
 }
 
 bool playNote(int note, int duration, bool force = false) {
@@ -269,32 +138,7 @@ void loadMusic(byte *ar, int len) {
   }
 }
 
-void setup() {
-  lcd.clear();
-  Serial.begin(9600);
 
-  // set up the LCD's number of columns and rows:
-  lcd.begin(16, 2);
-  // Print a message to the LCD.
-  lcd.print(F("Booting..."));
-
-  nfc.begin();
-    
-  uint32_t versiondata = nfc.getFirmwareVersion();
-  if (! versiondata) {
-    Serial.print(F("Didn't find PN53x board"));
-    return;
-  }
-
-  
-  // initialize the pushbutton pin as an input:
-  pinMode(buttonPin, INPUT);  
-  lcd.createChar(0, arrayUp);
-  lcd.createChar(1, black);
-  lcd.createChar(2, white);
-  lcd.createChar(3, silent);
-  drawKeyboard();
-}
 
 void saveToEeprom() {
   EEPROM.write(0, musicCursor);
@@ -351,7 +195,7 @@ void loop() {
   if (lastButtonState != buttonState && millis() - lastmillis >= 100) {
     if (buttonState == HIGH) {
       releasedClick = true;
-    } 
+    }
     else {
       clicked = true;
     }
@@ -518,7 +362,7 @@ void composeModeB(long newPosition) {
     lcd.setCursor(newPosition, 1);
     lcd.write(byte(0));
   }
-  
+
   if (clicked) {
     if (newPosition == 0) {
       if (musicCursor > 0)
@@ -559,10 +403,10 @@ void composeModeB(long newPosition) {
       lcd.print(duration);
     }
     else if (newPosition == 7) {
-      loadFromNfc();
+      //nfc.loadFromNfc(&music, &musicCursor);
     }
     else if (newPosition == 8) {
-      saveToNfc();
+      //nfc.saveToNfc(&music, &musicCursor);
     }
     else if (newPosition == 10) {
       saveToEeprom();
@@ -621,4 +465,3 @@ void debugMode() {
   lcd.setCursor(0, 1);
   lcd.print(millis() / 1000);
 }
-
