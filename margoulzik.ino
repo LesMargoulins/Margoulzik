@@ -3,9 +3,9 @@
 
 #include <LiquidCrystal.h>
 #include <Encoder.h>
-#include <EEPROM.h>
 #include "MargoulError.h"
 #include "MargoulNFC.h"
+#include "MargoulEeprom.h"
 
 void drawKeyboard();
 void drawParam();
@@ -119,6 +119,7 @@ void composeMode();
 LiquidCrystal lcd(10, 5, 6, 7, 8, 9);
 Encoder myEnc(3, 2);
 //MargoulNFC nfc;
+MargoulEeprom eeprom;
 
 #define KEYBOARD_SIZE 12
 #define KEYBOARD_OFFSET 1
@@ -164,6 +165,8 @@ int   soundQueue = 0;
 void setup() {
   lcd.clear();
   Serial.begin(9600);
+  Serial.println(F("Booting..."));
+
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
   // Print a message to the LCD.
@@ -248,38 +251,6 @@ void loadMusic(byte *ar, int len) {
 }
 
 
-
-void saveToEeprom() {
-  EEPROM.write(0, musicCursor);
-  for (int i = 0; i < musicCursor; i++) {
-    EEPROM.write((i * 3) + 1, music[i].note[0]);
-    EEPROM.write((i * 3) + 2, music[i].note[1]);
-    EEPROM.write((i * 3) + 3, music[i].duration);
-  }
-}
-
-void loadFromEeprom() {
-  musicCursor = EEPROM.read(0);
-  for (int i = 0; i < musicCursor; i++) {
-    music[i].note[0] = EEPROM.read((i * 3) + 1);
-    music[i].note[1] = EEPROM.read((i * 3) + 2);
-    music[i].duration = EEPROM.read((i * 3) + 3);
-  }
-}
-
-void clearEeprom() {
-  for (int i = 0 ; i < EEPROM.length() ; i++) {
-    EEPROM.write(i, 0);
-  }
-}
-
-void dumpEeprom() {
-  Serial.print(F("Eeprom: "));
-  Serial.println(EEPROM.length());
-  for (int i = 0 ; i < EEPROM.length() ; i++) {
-    Serial.println(EEPROM.read(i), DEC);
-  }
-}
 
 int mode = PIANO_COMPOSE_MODE;
 bool clicked = false;
@@ -511,11 +482,13 @@ void composeModeB(long newPosition) {
       //nfc.saveToNfc(&music, &musicCursor);
     }
     else if (newPosition == 10) {
-      saveToEeprom();
+		eeprom.saveToEeprom(music, musicCursor);
       drawParam();
     }
     else if (newPosition == 11) {
-      loadFromEeprom();
+		eeprom.loadFromEeprom(music, &musicCursor);
+		Serial.println("music cursor");
+		Serial.println(musicCursor);
       drawParam();
     }
     else if (newPosition == 13) {
